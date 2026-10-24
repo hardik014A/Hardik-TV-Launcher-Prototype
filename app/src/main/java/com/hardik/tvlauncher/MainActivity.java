@@ -3,6 +3,7 @@ package com.hardik.tvlauncher;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.os.Handler;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
@@ -13,38 +14,43 @@ import android.net.Uri;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.HorizontalScrollView;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 
 public class MainActivity extends Activity {
 
-    int bg = Color.rgb(9, 10, 15);
-    int cardBg = Color.rgb(27, 29, 38);
-    int white = Color.WHITE;
-    int muted = Color.rgb(165, 169, 181);
-    int blue = Color.rgb(112, 180, 255);
+    final int BG = Color.rgb(5, 9, 24);
+    final int BLUE = Color.rgb(65, 155, 255);
+    final int WHITE = Color.WHITE;
+    final int MUTED = Color.rgb(177, 199, 230);
 
-    LinearLayout root;
-    LinearLayout content;
-    TextView status;
-    final List<ResolveInfo> installedApps = new ArrayList<>();
+    LinearLayout root, appRow, musicRow;
+    TextView clockText, dateText;
+    Handler handler = new Handler();
+    List<ResolveInfo> apps = new ArrayList<>();
 
-    String[] artists = {
-        "Sunidhi Chauhan",
-        "Atif Aslam",
-        "Rahat Fateh Ali Khan",
-        "Pritam",
-        "Yo Yo Honey Singh",
-        "Jasmine Sandlas"
+    final String[] artists = {
+        "Sunidhi Chauhan", "Atif Aslam",
+        "Rahat Fateh Ali Khan", "Pritam",
+        "Yo Yo Honey Singh", "Jasmine Sandlas"
     };
 
-    String[] initials = {
+    final String[] initials = {
         "SC", "AA", "RF", "P", "YY", "JS"
+    };
+
+    final String[] songs = {
+        "Sheila Ki Jawani", "Tera Hone Laga Hoon",
+        "Zaroori Tha", "Kesariya",
+        "Brown Rang", "Yaar Na Miley"
     };
 
     int dp(float n) {
@@ -52,15 +58,17 @@ public class MainActivity extends Activity {
             .getDisplayMetrics().density + 0.5f);
     }
 
-    GradientDrawable shape(int color, int border) {
-        GradientDrawable d = new GradientDrawable();
-        d.setColor(color);
-        d.setCornerRadius(dp(16));
-        d.setStroke(dp(2), border);
+    GradientDrawable gradient(int a, int b, int border) {
+        GradientDrawable d = new GradientDrawable(
+            GradientDrawable.Orientation.TL_BR,
+            new int[]{a, b, BG}
+        );
+        d.setCornerRadius(dp(22));
+        d.setStroke(dp(1), border);
         return d;
     }
 
-    TextView label(String value, int size, int color) {
+    TextView text(String value, int size, int color) {
         TextView t = new TextView(this);
         t.setText(value);
         t.setTextSize(size);
@@ -69,333 +77,416 @@ public class MainActivity extends Activity {
         return t;
     }
 
+    LinearLayout vertical() {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.VERTICAL);
+        return l;
+    }
+
+    LinearLayout horizontal() {
+        LinearLayout l = new LinearLayout(this);
+        l.setOrientation(LinearLayout.HORIZONTAL);
+        l.setGravity(Gravity.CENTER_VERTICAL);
+        return l;
+    }
+
     @Override
     protected void onCreate(Bundle state) {
         super.onCreate(state);
 
-        getWindow().setStatusBarColor(bg);
-        getWindow().setNavigationBarColor(bg);
+        getWindow().setStatusBarColor(BG);
+        getWindow().setNavigationBarColor(BG);
         getWindow().getDecorView().setSystemUiVisibility(
             View.SYSTEM_UI_FLAG_FULLSCREEN
             | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
             | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
         );
 
-        buildHome();
-        discoverApps();
+        buildScreen();
+        loadApps();
+        updateClock();
     }
 
-    void buildHome() {
-        ScrollView page = new ScrollView(this);
-        page.setFillViewport(true);
-        page.setBackgroundColor(bg);
+    void buildScreen() {
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(true);
+        scroll.setBackground(gradient(
+            Color.rgb(15, 52, 112),
+            Color.rgb(7, 17, 48), Color.TRANSPARENT
+        ));
 
-        root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(dp(32), dp(22), dp(32), dp(28));
-        page.addView(root);
+        root = vertical();
+        root.setPadding(dp(30), dp(20), dp(30), dp(30));
+        scroll.addView(root);
+        setContentView(scroll);
 
-        setContentView(page);
+        // Brand and clock widgets
+        LinearLayout top = horizontal();
 
-        TextView brand = label("HARDIK PREMIUM+", 27, white);
+        LinearLayout brandBox = vertical();
+        TextView brand = text("Hardik TV+", 30, WHITE);
         brand.setTypeface(Typeface.DEFAULT_BOLD);
-        root.addView(brand, new LinearLayout.LayoutParams(
-            -1, dp(42)));
+        brandBox.addView(brand);
 
-        TextView tagline = label(
-            "CINEMA  •  ENTERTAINMENT  •  MUSIC",
-            11, muted);
-        root.addView(tagline, new LinearLayout.LayoutParams(
-            -1, dp(27)));
+        TextView sub = text(
+            "CINEMATIC ENTERTAINMENT", 11, MUTED);
+        brandBox.addView(sub);
 
-        TextView welcome = label(
-            "Your screen. Your world.", 24, white);
-        welcome.setTypeface(Typeface.DEFAULT_BOLD);
+        top.addView(brandBox,
+            new LinearLayout.LayoutParams(0, -2, 1));
 
-        LinearLayout.LayoutParams wp =
-            new LinearLayout.LayoutParams(-1, dp(48));
-        wp.topMargin = dp(15);
-        root.addView(welcome, wp);
+        LinearLayout widgets = vertical();
+        widgets.setGravity(Gravity.RIGHT);
 
-        TextView subtitle = label(
-            "Everything you love, in one place.",
-            14, muted);
-        root.addView(subtitle, new LinearLayout.LayoutParams(
-            -1, dp(30)));
+        clockText = text("--:--", 25, WHITE);
+        clockText.setTypeface(Typeface.DEFAULT_BOLD);
+        clockText.setGravity(Gravity.RIGHT);
+        widgets.addView(clockText);
 
-        LinearLayout nav = new LinearLayout(this);
-        nav.setOrientation(LinearLayout.HORIZONTAL);
-        nav.setGravity(Gravity.CENTER_VERTICAL);
+        dateText = text("--", 12, MUTED);
+        dateText.setGravity(Gravity.RIGHT);
+        widgets.addView(dateText);
+
+        top.addView(widgets);
+        root.addView(top);
+
+        // Navigation
+        LinearLayout nav = horizontal();
+        nav.setPadding(0, dp(15), 0, dp(12));
 
         String[] tabs = {
-            "Home", "Movies", "TV Shows", "Music", "Apps"
+            "Home", "Movies", "TV Shows",
+            "Music", "Apps", "Settings"
         };
 
         for (String tab : tabs) {
-            TextView t = label(tab, 14,
-                tab.equals("Home") ? white : muted);
-            t.setGravity(Gravity.CENTER);
-            t.setPadding(dp(12), dp(7), dp(12), dp(7));
-            t.setFocusable(true);
-            t.setBackground(shape(bg, Color.TRANSPARENT));
+            TextView item = text(tab, 13,
+                tab.equals("Home") ? WHITE : MUTED);
+            item.setGravity(Gravity.CENTER);
+            item.setPadding(dp(12), dp(9), dp(12), dp(9));
+            item.setFocusable(true);
+            item.setBackground(gradient(
+                Color.rgb(16, 40, 80),
+                Color.rgb(8, 20, 44), Color.TRANSPARENT
+            ));
 
-            t.setOnFocusChangeListener((v, focused) -> {
-                t.setBackground(shape(
-                    focused ? Color.rgb(49, 55, 70) : bg,
-                    focused ? blue : Color.TRANSPARENT
+            item.setOnFocusChangeListener((v, focused) -> {
+                item.setTextColor(focused ? WHITE : MUTED);
+                item.setBackground(gradient(
+                    focused ? Color.rgb(35, 102, 194)
+                            : Color.rgb(16, 40, 80),
+                    Color.rgb(8, 20, 44),
+                    focused ? BLUE : Color.TRANSPARENT
                 ));
-                t.setTextColor(focused ? white : muted);
             });
 
-            if (tab.equals("Music")) {
-                t.setOnClickListener(v ->
-                    findViewById(3003).requestFocus());
-            } else if (tab.equals("Apps")) {
-                t.setOnClickListener(v ->
-                    findViewById(3002).requestFocus());
-            } else if (tab.equals("Movies")
-                    || tab.equals("TV Shows")) {
-                t.setOnClickListener(v ->
+            item.setOnClickListener(v -> {
+                if (tab.equals("Apps")) {
+                    findViewById(2001).requestFocus();
+                } else if (tab.equals("Music")) {
+                    findViewById(2002).requestFocus();
+                } else if (tab.equals("Settings")) {
+                    startActivity(new Intent(
+                        android.provider.Settings.ACTION_SETTINGS));
+                } else {
                     Toast.makeText(this,
-                        "Open a streaming app below",
-                        Toast.LENGTH_SHORT).show());
-            } else {
-                t.setOnClickListener(v ->
-                    findViewById(3001).requestFocus());
-            }
+                        tab + " selected",
+                        Toast.LENGTH_SHORT).show();
+                }
+            });
 
-            nav.addView(t, new LinearLayout.LayoutParams(
-                -2, dp(43)));
+            nav.addView(item);
         }
+        root.addView(nav);
 
-        LinearLayout.LayoutParams np =
-            new LinearLayout.LayoutParams(-1, dp(48));
-        np.topMargin = dp(12);
-        root.addView(nav, np);
-
-        LinearLayout hero = new LinearLayout(this);
-        hero.setOrientation(LinearLayout.VERTICAL);
+        // Cinematic hero banner
+        LinearLayout hero = vertical();
+        hero.setPadding(dp(25), dp(20), dp(20), dp(20));
         hero.setGravity(Gravity.CENTER_VERTICAL);
-        hero.setPadding(dp(24), dp(15), dp(24), dp(15));
-        hero.setBackground(shape(
-            Color.rgb(23, 30, 46),
-            Color.rgb(42, 54, 76)));
+        hero.setBackground(gradient(
+            Color.rgb(35, 111, 225),
+            Color.rgb(12, 39, 95), BLUE
+        ));
+        hero.setFocusable(true);
 
-        TextView eyebrow = label(
-            "THE CINEMATIC EXPERIENCE", 11, blue);
+        TextView eyebrow = text(
+            "YOUR PERSONAL ENTERTAINMENT HUB", 11, WHITE);
         hero.addView(eyebrow);
 
-        TextView heroTitle = label(
-            "Make it a movie night.", 25, white);
+        TextView heroTitle = text(
+            "A whole world.\\nOne screen.", 30, WHITE);
         heroTitle.setTypeface(Typeface.DEFAULT_BOLD);
-        hero.addView(heroTitle);
+        heroTitle.setMaxLines(2);
+        LinearLayout.LayoutParams titleP =
+            new LinearLayout.LayoutParams(-1, dp(82));
+        titleP.topMargin = dp(7);
+        hero.addView(heroTitle, titleP);
 
-        TextView heroDesc = label(
-            "Choose your favourite entertainment app.",
-            14, muted);
-        hero.addView(heroDesc);
+        TextView heroSub = text(
+            "Movies  •  Shows  •  Music  •  Apps",
+            14, Color.rgb(218, 235, 255));
+        hero.addView(heroSub);
 
-        hero.setFocusable(true);
         hero.setOnFocusChangeListener((v, focused) ->
-            hero.setBackground(shape(
-                focused ? Color.rgb(39, 54, 78)
-                        : Color.rgb(23, 30, 46),
-                focused ? blue : Color.rgb(42, 54, 76)
+            hero.setBackground(gradient(
+                focused ? Color.rgb(49, 139, 255)
+                        : Color.rgb(35, 111, 225),
+                Color.rgb(12, 39, 95),
+                focused ? WHITE : BLUE
             )));
 
         hero.setOnClickListener(v -> {
-            if (!installedApps.isEmpty()) {
-                launch(installedApps.get(0));
-            }
+            if (!apps.isEmpty()) launch(apps.get(0));
         });
 
-        LinearLayout.LayoutParams hp =
-            new LinearLayout.LayoutParams(-1, dp(145));
-        hp.topMargin = dp(12);
-        root.addView(hero, hp);
+        LinearLayout.LayoutParams heroP =
+            new LinearLayout.LayoutParams(-1, dp(190));
+        heroP.bottomMargin = dp(15);
+        root.addView(hero, heroP);
 
-        status = label("YOUR APPS", 20, white);
-        status.setTypeface(Typeface.DEFAULT_BOLD);
+        // Widget cards
+        TextView widgetTitle = text("AT A GLANCE", 17, WHITE);
+        widgetTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        root.addView(widgetTitle);
 
-        LinearLayout.LayoutParams sp =
-            new LinearLayout.LayoutParams(-1, dp(44));
-        sp.topMargin = dp(12);
-        root.addView(status, sp);
+        LinearLayout widgetRow = horizontal();
+        widgetRow.setGravity(Gravity.TOP);
 
-        content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        root.addView(content);
+        String[] widgetNames = {
+            "WEATHER", "QUICK ACCESS", "MUSIC"
+        };
+        String[] widgetValues = {
+            "Check locally", "Your apps", "Your library"
+        };
 
-        content.setFocusable(false);
+        for (int i = 0; i < widgetNames.length; i++) {
+            final int index = i;
+            LinearLayout w = vertical();
+            w.setPadding(dp(12), dp(12), dp(10), dp(12));
+            w.setBackground(gradient(
+                Color.rgb(21, 43, 79),
+                Color.rgb(10, 22, 44),
+                Color.rgb(46, 83, 137)
+            ));
+            w.setFocusable(true);
 
-        TextView footer = label(
-            "HARDIK PREMIUM+    •    Use remote to navigate",
-            11, muted);
-        LinearLayout.LayoutParams fp =
-            new LinearLayout.LayoutParams(-1, dp(42));
-        fp.topMargin = dp(15);
-        root.addView(footer, fp);
+            TextView heading = text(
+                widgetNames[i], 10, BLUE);
+            w.addView(heading);
 
-        addRow("YOUR INSTALLED APPS", 3002);
-        addRow("MUSIC LIBRARY", 3003);
-    }
+            TextView value = text(
+                widgetValues[i], 13, WHITE);
+            w.addView(value);
 
-    void addRow(String title, int id) {
-        TextView heading = label(title, 18, white);
-        heading.setTypeface(Typeface.DEFAULT_BOLD);
-        heading.setId(id);
+            w.setOnClickListener(v -> {
+                if (index == 1) {
+                    findViewById(2001).requestFocus();
+                } else if (index == 2) {
+                    findViewById(2002).requestFocus();
+                } else {
+                    Toast.makeText(this,
+                        "Connect a weather provider for live weather",
+                        Toast.LENGTH_SHORT).show();
+                }
+            });
 
-        LinearLayout.LayoutParams p =
-            new LinearLayout.LayoutParams(-1, dp(42));
-        p.topMargin = dp(12);
-        content.addView(heading, p);
+            w.setOnFocusChangeListener((v, focused) ->
+                w.setBackground(gradient(
+                    Color.rgb(21, 43, 79),
+                    Color.rgb(10, 22, 44),
+                    focused ? WHITE : Color.rgb(46, 83, 137)
+                )));
 
-        HorizontalScrollView horizontal =
-            new HorizontalScrollView(this);
-        horizontal.setHorizontalScrollBarEnabled(false);
-
-        LinearLayout row = new LinearLayout(this);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setPadding(dp(3), dp(5), dp(3), dp(12));
-
-        horizontal.addView(row);
-        content.addView(horizontal, new LinearLayout.LayoutParams(
-            -1, dp(112)));
-
-        if (id == 3002) {
-            for (ResolveInfo info : installedApps) {
-                addAppCard(row, info);
-            }
-
-            if (installedApps.isEmpty()) {
-                row.addView(label(
-                    "No compatible apps found",
-                    14, muted));
-            }
-        } else {
-            for (int i = 0; i < artists.length; i++) {
-                addArtistCard(row, i);
-            }
+            LinearLayout.LayoutParams wp =
+                new LinearLayout.LayoutParams(0, dp(75), 1);
+            wp.rightMargin = dp(8);
+            widgetRow.addView(w, wp);
         }
+        root.addView(widgetRow);
+
+        // Installed apps row
+        TextView appsTitle = text(
+            "YOUR APPS", 19, WHITE);
+        appsTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        appsTitle.setId(2001);
+
+        LinearLayout.LayoutParams headingP =
+            new LinearLayout.LayoutParams(-1, dp(45));
+        headingP.topMargin = dp(15);
+        root.addView(appsTitle, headingP);
+
+        HorizontalScrollView appScroll = new HorizontalScrollView(this);
+        appScroll.setHorizontalScrollBarEnabled(false);
+        appRow = horizontal();
+        appScroll.addView(appRow);
+        root.addView(appScroll,
+            new LinearLayout.LayoutParams(-1, dp(125)));
+
+        // Music library row
+        TextView musicTitle = text(
+            "MUSIC LIBRARY", 19, WHITE);
+        musicTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        musicTitle.setId(2002);
+
+        LinearLayout.LayoutParams musicHeadingP =
+            new LinearLayout.LayoutParams(-1, dp(45));
+        musicHeadingP.topMargin = dp(12);
+        root.addView(musicTitle, musicHeadingP);
+
+        HorizontalScrollView musicScroll =
+            new HorizontalScrollView(this);
+        musicScroll.setHorizontalScrollBarEnabled(false);
+        musicRow = horizontal();
+        musicScroll.addView(musicRow);
+        root.addView(musicScroll,
+            new LinearLayout.LayoutParams(-1, dp(140)));
+
+        for (int i = 0; i < artists.length; i++) {
+            addArtist(i);
+        }
+
+        TextView footer = text(
+            "HARDIK TV+  •  Made for your big screen",
+            11, MUTED);
+        footer.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams footerP =
+            new LinearLayout.LayoutParams(-1, dp(40));
+        footerP.topMargin = dp(15);
+        root.addView(footer, footerP);
     }
 
-    void addAppCard(LinearLayout row, ResolveInfo info) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER);
-        card.setPadding(dp(8), dp(8), dp(8), dp(8));
-        card.setBackground(shape(cardBg, Color.TRANSPARENT));
-        card.setFocusable(true);
-
-        TextView icon = label("▶", 27, blue);
-        icon.setGravity(Gravity.CENTER);
-        card.addView(icon, new LinearLayout.LayoutParams(
-            -1, dp(42)));
-
-        TextView name = label(
-            info.loadLabel(getPackageManager()).toString(),
-            13, white);
-        name.setGravity(Gravity.CENTER);
-        name.setMaxLines(2);
-        card.addView(name, new LinearLayout.LayoutParams(
-            -1, dp(35)));
-
-        card.setOnFocusChangeListener((v, focused) ->
-            card.setBackground(shape(
-                focused ? Color.rgb(47, 58, 77) : cardBg,
-                focused ? blue : Color.TRANSPARENT
-            )));
-
-        card.setOnClickListener(v -> launch(info));
-
-        LinearLayout.LayoutParams p =
-            new LinearLayout.LayoutParams(dp(155), dp(92));
-        p.rightMargin = dp(12);
-        row.addView(card, p);
-    }
-
-    void addArtistCard(LinearLayout row, int index) {
-        LinearLayout card = new LinearLayout(this);
-        card.setOrientation(LinearLayout.VERTICAL);
-        card.setGravity(Gravity.CENTER);
-        card.setPadding(dp(8), dp(8), dp(8), dp(8));
-        card.setFocusable(true);
-        card.setBackground(shape(cardBg, Color.TRANSPARENT));
-
-        TextView monogram = label(initials[index], 25, blue);
-        monogram.setTypeface(Typeface.DEFAULT_BOLD);
-        monogram.setGravity(Gravity.CENTER);
-        card.addView(monogram, new LinearLayout.LayoutParams(
-            -1, dp(43)));
-
-        TextView name = label(artists[index], 12, white);
-        name.setGravity(Gravity.CENTER);
-        name.setMaxLines(2);
-        card.addView(name, new LinearLayout.LayoutParams(
-            -1, dp(32)));
-
-        card.setOnFocusChangeListener((v, focused) ->
-            card.setBackground(shape(
-                focused ? Color.rgb(47, 58, 77) : cardBg,
-                focused ? blue : Color.TRANSPARENT
-            )));
-
-        card.setOnClickListener(v -> {
-            String url = "https://music.youtube.com/search?q="
-                + Uri.encode(artists[index]);
-            Intent intent = new Intent(
-                Intent.ACTION_VIEW, Uri.parse(url));
-            try {
-                startActivity(intent);
-            } catch (Exception e) {
-                Toast.makeText(this,
-                    "Music app unavailable",
-                    Toast.LENGTH_SHORT).show();
-            }
-        });
-
-        LinearLayout.LayoutParams p =
-            new LinearLayout.LayoutParams(dp(155), dp(92));
-        p.rightMargin = dp(12);
-        row.addView(card, p);
-    }
-
-    void discoverApps() {
-        installedApps.clear();
+    void loadApps() {
         PackageManager pm = getPackageManager();
 
         Intent intent = new Intent(Intent.ACTION_MAIN);
         intent.addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
 
-        List<ResolveInfo> results =
+        List<ResolveInfo> found =
             pm.queryIntentActivities(intent, 0);
 
-        if (results.isEmpty()) {
+        if (found.isEmpty()) {
             intent.removeCategory(
                 Intent.CATEGORY_LEANBACK_LAUNCHER);
             intent.addCategory(Intent.CATEGORY_LAUNCHER);
-            results = pm.queryIntentActivities(intent, 0);
+            found = pm.queryIntentActivities(intent, 0);
         }
 
-        Collections.sort(results, (a, b) ->
-            String.CASE_INSENSITIVE_ORDER.compare(
-                a.loadLabel(pm).toString(),
-                b.loadLabel(pm).toString()));
+        apps.clear();
+        apps.addAll(found);
 
-        installedApps.addAll(results);
-        content.removeAllViews();
-        addRow("YOUR INSTALLED APPS", 3002);
-        addRow("MUSIC LIBRARY", 3003);
+        for (ResolveInfo info : apps) {
+            addApp(info);
+        }
+
+        if (apps.isEmpty()) {
+            TextView empty = text(
+                "No compatible apps detected.", 14, MUTED);
+            appRow.addView(empty);
+        }
+    }
+
+    void addApp(ResolveInfo info) {
+        LinearLayout card = vertical();
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(dp(10), dp(8), dp(10), dp(8));
+        card.setFocusable(true);
+        card.setBackground(gradient(
+            Color.rgb(24, 37, 61),
+            Color.rgb(10, 18, 34), Color.TRANSPARENT
+        ));
+
+        ImageView icon = new ImageView(this);
+        try {
+            icon.setImageDrawable(info.loadIcon(getPackageManager()));
+        } catch (Exception ignored) {}
+
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        card.addView(icon, new LinearLayout.LayoutParams(
+            dp(43), dp(43)));
+
+        TextView name = text(
+            info.loadLabel(getPackageManager()).toString(),
+            12, WHITE);
+        name.setGravity(Gravity.CENTER);
+        name.setMaxLines(2);
+        card.addView(name, new LinearLayout.LayoutParams(
+            dp(105), dp(35)));
+
+        card.setOnFocusChangeListener((v, focused) ->
+            card.setBackground(gradient(
+                Color.rgb(24, 53, 93),
+                Color.rgb(10, 18, 34),
+                focused ? WHITE : Color.TRANSPARENT
+            )));
+
+        card.setOnClickListener(v -> launch(info));
+
+        LinearLayout.LayoutParams p =
+            new LinearLayout.LayoutParams(dp(125), dp(110));
+        p.rightMargin = dp(10);
+        appRow.addView(card, p);
+    }
+
+    void addArtist(int index) {
+        LinearLayout card = vertical();
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(dp(10), dp(10), dp(10), dp(10));
+        card.setFocusable(true);
+        card.setBackground(gradient(
+            Color.rgb(24, 53, 93),
+            Color.rgb(10, 18, 34), Color.TRANSPARENT
+        ));
+
+        TextView initialsText = text(
+            initials[index], 27, WHITE);
+        initialsText.setTypeface(Typeface.DEFAULT_BOLD);
+        initialsText.setGravity(Gravity.CENTER);
+        card.addView(initialsText,
+            new LinearLayout.LayoutParams(-1, dp(55)));
+
+        TextView name = text(artists[index], 12, WHITE);
+        name.setGravity(Gravity.CENTER);
+        name.setMaxLines(2);
+        card.addView(name,
+            new LinearLayout.LayoutParams(dp(130), dp(35)));
+
+        card.setOnFocusChangeListener((v, focused) ->
+            card.setBackground(gradient(
+                Color.rgb(35, 105, 192),
+                Color.rgb(10, 18, 34),
+                focused ? WHITE : Color.TRANSPARENT
+            )));
+
+        card.setOnClickListener(v -> {
+            String query = artists[index] + " " + songs[index];
+            Intent music = new Intent(
+                Intent.ACTION_VIEW,
+                Uri.parse("https://music.youtube.com/search?q="
+                    + Uri.encode(query))
+            );
+            try {
+                startActivity(music);
+            } catch (Exception e) {
+                Toast.makeText(this,
+                    "Unable to open music search",
+                    Toast.LENGTH_SHORT).show();
+            }
+        });
+
+        LinearLayout.LayoutParams p =
+            new LinearLayout.LayoutParams(dp(150), dp(120));
+        p.rightMargin = dp(10);
+        musicRow.addView(card, p);
     }
 
     void launch(ResolveInfo info) {
-        Intent intent = getPackageManager()
+        Intent launch = getPackageManager()
             .getLaunchIntentForPackage(
                 info.activityInfo.packageName);
 
-        if (intent != null) {
+        if (launch != null) {
             try {
-                startActivity(intent);
+                startActivity(launch);
             } catch (Exception e) {
                 Toast.makeText(this,
                     "Unable to open app",
@@ -404,11 +495,33 @@ public class MainActivity extends Activity {
         }
     }
 
+    void updateClock() {
+        if (clockText == null) return;
+
+        Date now = new Date();
+        clockText.setText(new SimpleDateFormat(
+            "h:mm a", Locale.getDefault()).format(now));
+
+        dateText.setText(new SimpleDateFormat(
+            "EEE, d MMM", Locale.getDefault()).format(now));
+
+        handler.postDelayed(this::updateClock, 30000);
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
-        if (root != null) {
-            discoverApps();
+        if (appRow != null) {
+            appRow.removeAllViews();
+            loadApps();
         }
+        updateClock();
     }
-            }
+
+    @Override
+    protected void onDestroy() {
+        handler.removeCallbacksAndMessages(null);
+        super.onDestroy();
+    }
+                    }
+            
