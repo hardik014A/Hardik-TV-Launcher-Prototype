@@ -21,8 +21,15 @@ jobs:
           java-version: '17'
 
       
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
+      
+      - name: Install Android SDK packages
+        env:
+          ANDROID_HOME: /usr/local/lib/android/sdk
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          
 
       - name: Install SDK packages
         run: |
