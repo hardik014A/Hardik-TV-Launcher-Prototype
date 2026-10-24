@@ -1,0 +1,11 @@
+HARDIK TV Launcher - mobile build route
+
+This ZIP is Android source, not an APK yet. To get the APK without a computer:
+1. On your phone, sign in/create a GitHub account.
+2. Create a NEW PUBLIC repository named HardikTVLauncher (public is easiest for Actions; do not upload secrets).
+3. Upload/extract all files from this ZIP into the repository root, including the hidden .github/workflows/build-apk.yml file. If GitHub mobile upload hides dotfolders, create the workflow file in GitHub's web editor at .github/workflows/build-apk.yml using the included file contents.
+4. Open the repository's Actions tab, choose "Build HARDIK TV APK", press Run workflow.
+5. When the run succeeds, open that run and download the artifact named HARDIK-TV-Launcher-APK. Extract the downloaded artifact ZIP to get app-debug.apk.
+6. Transfer app-debug.apk to the TV and install it only if Android TV allows unknown-app installation. Then choose HARDIK TV Launcher when Android asks for a Home app.
+
+Important: this is an unsigned-for-store debug APK, suitable for testing. It has not been compiled or tested here. Some Google TV builds may not allow third-party launchers to replace the stock home screen; do not disable/remove the stock launcher.
