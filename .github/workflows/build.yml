@@ -20,26 +20,22 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      
-      
-      - name: Install Android SDK packages
-        env:
-          ANDROID_HOME: /usr/local/lib/android/sdk
+  
+      - name: Diagnose and install Android SDK
+        shell: bash
         run: |
-          SDKMANAGER="$ANDROID_HOME/cmdline-tools/16.0/bin/sdkmanager"
-          yes | "$SDKMANAGER" --licenses
-          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-          
-
-      - name: Install SDK packages
-        run: |
-          SDKMANAGER="$(find "${ANDROID_HOME:-/usr/local/lib/android/sdk}/cmdline-tools" -type f -name sdkmanager 2>/dev/null | head -n 1)"
+          echo "ANDROID_HOME=${ANDROID_HOME:-not set}"
+          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT:-not set}"
+          command -v sdkmanager || true
+          find /usr/local/lib/android/sdk/cmdline-tools -type f -name sdkmanager 2>/dev/null || true
+          SDKMANAGER="$(find /usr/local/lib/android/sdk/cmdline-tools -type f -name sdkmanager 2>/dev/null | head -n 1)"
           if [ -z "$SDKMANAGER" ]; then
-            echo "sdkmanager not found"
+            echo "ERROR: sdkmanager not found"
             exit 1
           fi
           yes | "$SDKMANAGER" --licenses
           "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          
           
       - name: Build APK
         run: |
