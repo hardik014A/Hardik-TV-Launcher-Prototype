@@ -3,180 +3,240 @@ package com.hardik.tvlauncher;
 
 import android.app.Activity;
 import android.os.Bundle;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
+import android.view.KeyEvent;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.ScrollView;
 import android.widget.Toast;
-import android.widget.HorizontalScrollView;
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 public class MainActivity extends Activity {
 
-    private final int BG = Color.rgb(5, 12, 32);
-    private final int BLUE = Color.rgb(40, 130, 255);
-    private final int WHITE = Color.WHITE;
-    private final int MUTED = Color.rgb(180, 200, 225);
+    private LinearLayout root;
+    private LinearLayout appsRow;
+    private final List<ResolveInfo> apps = new ArrayList<>();
+    private int focusedIndex = 0;
+
+    private int dp(float value) {
+        return (int) (value * getResources()
+                .getDisplayMetrics().density + 0.5f);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        getWindow().setStatusBarColor(Color.rgb(10, 14, 25));
+        getWindow().setNavigationBarColor(Color.rgb(10, 14, 25));
         getWindow().getDecorView().setSystemUiVisibility(
-            View.SYSTEM_UI_FLAG_FULLSCREEN
-            | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-            | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                View.SYSTEM_UI_FLAG_FULLSCREEN
+                        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+                        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+                        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE
         );
 
-        LinearLayout root = new LinearLayout(this);
+        buildLauncher();
+        loadApps();
+    }
+
+    private GradientDrawable background(int color, int strokeColor) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setColor(color);
+        drawable.setCornerRadius(dp(16));
+        drawable.setStroke(dp(2), strokeColor);
+        return drawable;
+    }
+
+    private TextView text(String value, int size, int color) {
+        TextView view = new TextView(this);
+        view.setText(value);
+        view.setTextSize(size);
+        view.setTextColor(color);
+        view.setGravity(Gravity.CENTER_VERTICAL);
+        view.setTypeface(Typeface.DEFAULT, Typeface.NORMAL);
+        return view;
+    }
+
+    private void buildLauncher() {
+        root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setPadding(40, 24, 40, 24);
-        root.setBackgroundColor(BG);
+        root.setPadding(dp(38), dp(24), dp(38), dp(20));
+        root.setBackgroundColor(Color.rgb(10, 14, 25));
 
         setContentView(root);
 
-        LinearLayout top = new LinearLayout(this);
-        top.setGravity(Gravity.CENTER_VERTICAL);
+        TextView brand = text("HARDIK", 30, Color.WHITE);
+        brand.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        root.addView(brand, new LinearLayout.LayoutParams(
+                -1, dp(45)));
 
-        TextView logo = makeText("HARDIK TV", 28, BLUE, true);
-        top.addView(logo, new LinearLayout.LayoutParams(0, -2, 1));
+        TextView subtitle = text(
+                "TV LAUNCHER  •  YOUR ENTERTAINMENT",
+                13, Color.LTGRAY);
+        root.addView(subtitle, new LinearLayout.LayoutParams(
+                -1, dp(35)));
 
-        String date = new SimpleDateFormat(
-            "EEE, dd MMM  |  hh:mm a", Locale.getDefault()
-        ).format(new Date());
+        TextView heading = text("Your Apps", 23, Color.WHITE);
+        heading.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
 
-        top.addView(makeText(date, 16, WHITE, false));
-        root.addView(top);
+        LinearLayout.LayoutParams headingParams =
+                new LinearLayout.LayoutParams(-1, dp(55));
+        headingParams.topMargin = dp(20);
+        root.addView(heading, headingParams);
 
-        TextView hero = makeText(
-            "YOUR CINEMA. YOUR MUSIC. YOUR WORLD.", 26, WHITE, true
-        );
-        hero.setPadding(0, 28, 0, 4);
-        root.addView(hero);
+        ScrollView scroll = new ScrollView(this);
+        scroll.setFillViewport(false);
 
-        root.addView(makeText(
-            "Welcome to your personal big-screen home.", 16, MUTED, false
-        ));
+        appsRow = new LinearLayout(this);
+        appsRow.setOrientation(LinearLayout.VERTICAL);
+        appsRow.setFocusable(false);
 
-        addHeading(root, "YOUR APPS");
+        scroll.addView(appsRow);
+        root.addView(scroll, new LinearLayout.LayoutParams(
+                -1, 0, 1f));
 
-        LinearLayout apps = new LinearLayout(this);
-        apps.setOrientation(LinearLayout.HORIZONTAL);
-
-        String[] appNames = {
-            "YouTube", "Netflix", "Prime Video", "Settings", "Play Store"
-        };
-
-        int[] appColors = {
-            0xffd62828, 0xffb91d35, 0xff1769aa,
-            0xff455a75, 0xff16865b
-        };
-
-        for (int i = 0; i < appNames.length; i++) {
-            final String appName = appNames[i];
-            TextView tile = makeTile(appName, appColors[i]);
-
-            LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(0, 76, 1);
-            params.setMargins(4, 4, 4, 4);
-
-            apps.addView(tile, params);
-
-            tile.setOnClickListener(v ->
-                Toast.makeText(
-                    MainActivity.this,
-                    appName + " shortcut selected",
-                    Toast.LENGTH_SHORT
-                ).show()
-            );
-        }
-
-        root.addView(apps);
-
-        addHeading(root, "MUSIC FAVOURITES");
-
-        HorizontalScrollView scroll = new HorizontalScrollView(this);
-        scroll.setHorizontalScrollBarEnabled(false);
-
-        LinearLayout artists = new LinearLayout(this);
-        artists.setOrientation(LinearLayout.HORIZONTAL);
-
-        String[] names = {
-            "Sunidhi Chauhan",
-            "Atif Aslam",
-            "Rahat Fateh Ali Khan",
-            "Pritam",
-            "Yo Yo Honey Singh",
-            "Jasmine Sandlas"
-        };
-
-        for (String name : names) {
-            TextView artist = makeTile(name, 0xff16365f);
-
-            LinearLayout.LayoutParams params =
-                new LinearLayout.LayoutParams(190, 64);
-            params.setMargins(4, 4, 8, 4);
-
-            artists.addView(artist, params);
-
-            artist.setOnClickListener(v ->
-                Toast.makeText(
-                    MainActivity.this,
-                    name,
-                    Toast.LENGTH_SHORT
-                ).show()
-            );
-        }
-
-        scroll.addView(artists);
-        root.addView(scroll);
-
-        TextView footer = makeText(
-            "Use your remote to select a tile", 14, MUTED, false
-        );
-        footer.setPadding(0, 22, 0, 0);
-        root.addView(footer);
+        TextView footer = text(
+                "Use your TV remote to navigate and select apps",
+                12, Color.GRAY);
+        root.addView(footer, new LinearLayout.LayoutParams(
+                -1, dp(35)));
     }
 
-    private void addHeading(LinearLayout root, String title) {
-        TextView heading = makeText(title, 17, BLUE, true);
-        heading.setPadding(0, 24, 0, 8);
-        root.addView(heading);
-    }
+    private void loadApps() {
+        apps.clear();
 
-    private TextView makeText(
-        String value, float size, int color, boolean bold
-    ) {
-        TextView text = new TextView(this);
-        text.setText(value);
-        text.setTextSize(size);
-        text.setTextColor(color);
+        Intent intent = new Intent(Intent.ACTION_MAIN);
+        intent.addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
 
-        if (bold) {
-            text.setTypeface(Typeface.DEFAULT, Typeface.BOLD);
+        PackageManager pm = getPackageManager();
+        List<ResolveInfo> results = pm.queryIntentActivities(
+                intent, 0);
+
+        if (results.isEmpty()) {
+            intent.removeCategory(Intent.CATEGORY_LEANBACK_LAUNCHER);
+            intent.addCategory(Intent.CATEGORY_LAUNCHER);
+            results = pm.queryIntentActivities(intent, 0);
         }
 
-        return text;
-    }
+        Collections.sort(results, (a, b) ->
+                String.CASE_INSENSITIVE_ORDER.compare(
+                        a.loadLabel(pm).toString(),
+                        b.loadLabel(pm).toString()));
 
-    private TextView makeTile(String value, int normalColor) {
-        TextView tile = makeText(value, 16, WHITE, true);
-        tile.setGravity(Gravity.CENTER);
-        tile.setPadding(8, 8, 8, 8);
-        tile.setBackgroundColor(normalColor);
-        tile.setFocusable(true);
-        tile.setClickable(true);
+        apps.addAll(results);
+        appsRow.removeAllViews();
 
-        tile.setOnFocusChangeListener((view, focused) -> {
-            view.setBackgroundColor(focused ? BLUE : normalColor);
-            view.setScaleX(focused ? 1.04f : 1.0f);
-            view.setScaleY(focused ? 1.04f : 1.0f);
+        if (apps.isEmpty()) {
+            TextView empty = text(
+                    "No launchable apps found.",
+                    18, Color.WHITE);
+            appsRow.addView(empty);
+            return;
+        }
+
+        for (int i = 0; i < apps.size(); i++) {
+            final int index = i;
+            ResolveInfo info = apps.get(i);
+
+            LinearLayout card = new LinearLayout(this);
+            card.setOrientation(LinearLayout.HORIZONTAL);
+            card.setGravity(Gravity.CENTER_VERTICAL);
+            card.setPadding(dp(20), dp(10), dp(20), dp(10));
+            card.setFocusable(true);
+            card.setFocusableInTouchMode(true);
+            card.setBackground(background(
+                    Color.rgb(25, 32, 49),
+                    Color.TRANSPARENT));
+
+            TextView icon = text("▶", 22, Color.rgb(100, 180, 255));
+            card.addView(icon, new LinearLayout.LayoutParams(
+                    dp(50), dp(48)));
+
+            TextView name = text(
+                    info.loadLabel(pm).toString(),
+                    18, Color.WHITE);
+            card.addView(name, new LinearLayout.LayoutParams(
+                    0, dp(48), 1f));
+
+            LinearLayout.LayoutParams cardParams =
+                    new LinearLayout.LayoutParams(-1, dp(76));
+            cardParams.bottomMargin = dp(10);
+            appsRow.addView(card, cardParams);
+
+            card.setOnFocusChangeListener((v, hasFocus) -> {
+                v.setBackground(background(
+                        hasFocus
+                                ? Color.rgb(40, 70, 110)
+                                : Color.rgb(25, 32, 49),
+                        hasFocus
+                                ? Color.rgb(100, 180, 255)
+                                : Color.TRANSPARENT));
+
+                if (hasFocus) {
+                    focusedIndex = index;
+                }
+            });
+
+            card.setOnClickListener(v -> launchApp(index));
+        }
+
+        appsRow.post(() -> {
+            View first = appsRow.getChildAt(0);
+            if (first != null) {
+                first.requestFocus();
+            }
         });
-
-        return tile;
     }
-                                              }
+
+    private void launchApp(int index) {
+        if (index < 0 || index >= apps.size()) return;
+
+        ResolveInfo info = apps.get(index);
+        Intent launch = getPackageManager()
+                .getLaunchIntentForPackage(
+                        info.activityInfo.packageName);
+
+        if (launch != null) {
+            try {
+                startActivity(launch);
+            } catch (Exception e) {
+                Toast.makeText(this,
+                        "Unable to open app",
+                        Toast.LENGTH_SHORT).show();
+            }
+        } else {
+            Toast.makeText(this,
+                    "App cannot be launched",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        if (keyCode == KeyEvent.KEYCODE_BACK) {
+            return super.onKeyDown(keyCode, event);
+        }
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (appsRow != null && appsRow.getChildCount() > 0) {
+            appsRow.post(() -> {
+                View focused = appsRow.getChildAt(focusedIndex);
+                if (focused != null) focused.requestFocus();
+            });
+        }
+    }
+    }
