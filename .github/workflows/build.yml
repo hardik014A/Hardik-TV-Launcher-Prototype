@@ -26,6 +26,8 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: ''
 
       - name: Install Android SDK packages
         run: |
@@ -36,7 +38,7 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Check project files
+      - name: Verify project files
         run: |
           test -f settings.gradle
           test -f build.gradle
@@ -44,7 +46,7 @@ jobs:
           test -f app/src/main/AndroidManifest.xml
           test -f app/src/main/java/com/hardik/tvlauncher/MainActivity.java
 
-      - name: Build HARDIK TV APK
+      - name: Build APK
         run: gradle assembleDebug
 
       - name: Upload APK
